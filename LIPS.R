@@ -160,9 +160,9 @@ Lassa_accession  <- c('AF181853.1','AF181854.1','AF246121.2','AF333969.1',
 
 # Download Genbank based on accession numbers -----------------------------
 Lassa_list <- list() #An empty list to be populated
-for(entry in 1:length(accession_lassa_gb)){
-  entry.name <- accession_lassa_gb[entry]
-  Lassa_list[entry.name] <- readGenBank(GBAccession(accession_lassa_gb[entry]), partial = T)
+for(entry in 1:length(Lassa_test_1)){
+  entry.name <- Lassa_test_1[entry]
+  Lassa_list[entry.name] <- readGenBank(GBAccession(Lassa_test_1[entry]), partial = T)
 }
 
 # Create a list of identified sequences
