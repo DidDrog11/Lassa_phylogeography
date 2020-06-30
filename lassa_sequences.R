@@ -1,5 +1,9 @@
 library('tidyverse')
 library('ggplot2')
+library('ggmap')
+library('sf')
+library("rnaturalearth")
+library("rnaturalearthdata")
 
 
 lassa_list <- readRDS('data/lassa_list.rds')
@@ -12,6 +16,57 @@ lassa_strains$host <- as.character(lapply(lassa_list, function(x) x@sources@elem
 ##Append where they were obtained from
 lassa_strains$country <- as.character(lapply(lassa_list, function(x) x@sources@elementMetadata@listData$country))
 lassa_strains$country <- gsub(':.*','\\',lassa_strains$country)
+lassa_strains$region <- as.character(lapply(lassa_list, function(x) x@sources@elementMetadata@listData$country)) %>%
+  gsub('.*: ','',.)
+lassa_strains <- lassa_strains %>%
+  mutate(region = ifelse(region %in% country, NA, region),
+         region = ifelse(region == "NULL", NA, region),
+         country = ifelse(country == "NULL", NA, country),
+         location = ifelse(is.na(region), NA, paste(region, country, sep = ", ")))
+
+geocoded_region <- na.omit(unique(lassa_strains$location)) %>%
+  tibble() %>%
+  rename(location = 1) %>%
+  mutate_geocode(location)
+
+##This misses some places for example Bantou, Guinea we can extract these from searching on google maps
+##Jirandogo and Tanganya are estimated as I could only finnd dots on maps where they should be
+missing_coords <- tibble(location = c("Bantou, Guinea", "Brissa, Guinea", "Denguedou, Guinea", "Gbetaya, Guinea", "Jirandogo, Ghana", "Khoria, Guinea", "Tanganya, Guinea", "Worogui, Benin",
+                                      "Safrani, Guinea", "Silimi, Guinea", "Odo-akaba, Benin"),
+                         lon = c(10.05, 10.22, 8.49, 9.84, 8.65, 9.94, 9.88, 8.88, 0.06, 9.98, 8.77),
+                         lat = c(-10.59, -10.69, -10.45, -11.04, 0.00, -10.89, -10.8, -2.67, -10.74, -10.82, -2.6))
+
+locations <- geocoded_region %>%
+  left_join(., missing_coords, by = "location") %>%
+  mutate(lon = coalesce(lon.x, lon.y),
+         lat = coalesce(lat.x, lat.y)) %>%
+  select(location, lon, lat)
+
+geocoded_nation <- na.omit(unique(lassa_strains$country)) %>%
+  tibble() %>%
+  rename(country = 1) %>%
+  mutate_geocode(country) %>%
+  mutate(lon = ifelse(country == "Togo", 8.6195, lon),
+         lat = ifelse(country == "Togo", 0.8248, lat))
+
+lassa_strains <- lassa_strains %>%
+  left_join(., locations, by = "location") %>%
+  left_join(., geocoded_nation, by = "country") %>%
+  mutate(lon = ifelse(is.na(lon.x), lon.y, lon.x),
+         lat = ifelse(is.na(lat.x), lat.y, lat.x)) %>%
+  select(V1, host, country, region, location, lon, lat)
+
+boundaries <- tibble(lon_max = max(na.omit(lassa_strains$lon))+1,
+                     lon_min = min(na.omit(lassa_strains$lon))-1,
+                     lat_max = max(na.omit(lassa_strains$lat))+1,
+                     lat_min = min(na.omit(lassa_strains$lat))+1)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+ggplot(data = world) +
+  geom_sf() +
+  coord_sf(xlim = c(boundaries$lon_min, boundaries$lon_max), ylim = c(boundaries$lat_min, boundaries$lat_max), expand = FALSE) +
+  geom_count(data = lassa_strains, aes(x = lon, y = lat)) +
+  theme_bw()
 
 ##Append when they were obtained
 lassa_strains$year <- as.character(lapply(lassa_list, function(x) x@sources@elementMetadata@listData$collection_date))
