@@ -7,13 +7,13 @@ library('wesanderson')
 library('RColorBrewer')
 
 path <- getwd()
-Bepipred <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx')
-Chou_Fasman <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 2)
-Emini <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 3)
-Karplus_Schulz <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 4)
-Kolaska_Tongaonkar <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 5)
-Parker <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 6)
-Sequence_identity <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/AA_identity.xlsx')
+Bepipred <-read_excel("C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx")
+Chou_Fasman <- readxl::read_xlsx("C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 2)
+Emini <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 3)
+Karplus_Schulz <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 4)
+Kolaska_Tongaonkar <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 5)
+Parker <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 6)
+Sequence_identity <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/AA_identity.xlsx")
 pal <- wes_palette("Zissou1", 100, type = "continuous")
 pal2 <- brewer.pal(9,"YlOrRd")
 
@@ -121,7 +121,7 @@ Parker1 <- print(ggplot(data = Parker, mapping = aes(x = Position,
                                theme_bw()
 )
 
-combined_epi <- readxl::read_xlsx(path = '/Users/david/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential Epitopes.xlsx', sheet = 7)
+combined_epi <- readxl::read_xlsx(path = "C:/Users/ucbtds4/Google Drive/PhD/LIPS/Sequences/Epitopes/Potential_Epitopes.xlsx", sheet = 7)
 
 data <- combined_epi %>%
   filter(Algorithm %in% c("Bepipred", "Bepipred_2", "Kolaska_Tongaonkar"))
