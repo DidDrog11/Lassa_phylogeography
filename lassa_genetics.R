@@ -1,4 +1,5 @@
 library('tidyverse')
+library('genbankr')
 library('ggplot2')
 
 
