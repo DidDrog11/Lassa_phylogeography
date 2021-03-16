@@ -29,8 +29,8 @@ geocoded_region <- na.omit(unique(lassa_strains$location)) %>%
   rename(location = 1) %>%
   mutate_geocode(location)
 
-##This misses some places for example Bantou, Guinea we can extract these from searching on google maps
-##Jirandogo and Tanganya are estimated as I could only finnd dots on maps where they should be
+# This misses some places for example Bantou, Guinea we can extract these from searching on google maps
+# Jirandogo and Tanganya are estimated
 missing_coords <- tibble(location = c("Bantou, Guinea", "Brissa, Guinea", "Denguedou, Guinea", "Gbetaya, Guinea", "Jirandogo, Ghana", "Khoria, Guinea", "Tanganya, Guinea", "Worogui, Benin",
                                       "Safrani, Guinea", "Silimi, Guinea", "Odo-akaba, Benin"),
                          lon = c(10.05, 10.22, 8.49, 9.84, 8.65, 9.94, 9.88, 8.88, 0.06, 9.98, 8.77),

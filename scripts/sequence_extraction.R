@@ -1,6 +1,9 @@
 # The date we ran the search
 search_date <- "2021-03-15"
 
+# Set an entrez API key
+set_entrez_key(entrez_key)
+
 # We pull all the accession numbers found in a search for Lassa mammarenavirus on the nucleotide dataset from NCBI
 ifelse(file.exists(here("data", "accession_2021-03-15.rds")),
         accession_lassa <- read_rds(here("data", "accession_2021-03-15.rds")),
@@ -213,6 +216,18 @@ for(entry in names(lassa_list)) {
   }
 }
 
+# We then extract the nucleotide sequence from entry once we know what it represents
+all_sequences$name_nuc_seq <- NA
+all_sequences$nuc_seq <- NA
+all_sequences$nuc_length <- NA
+
+for(entry in names(lassa_list)) {
+    name_nuc <- as.character(names(lassa_list[[entry]]@sequence))
+    nuc_seq <- as.character(unname(lassa_list[[entry]]@sequence))
+    all_sequences$name_nuc_seq[all_sequences$accession_lassa==entry] <- name_nuc
+    all_sequences$nuc_seq[all_sequences$accession_lassa==entry] <- nuc_seq
+    all_sequences$nuc_length[all_sequences$accession_lassa==entry] <- nchar(nuc_seq)
+    }
 
 all_sequences %>%
   mutate_all(~replace(., is.na(.), 0)) %>%
