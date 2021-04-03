@@ -99,4 +99,27 @@ write_rds(np_gpc_sequences, here("cleaned_data", paste("cleaned_np_gpc_", search
 write_rds(l_z_sequences, here("cleaned_data", paste("cleaned_l_z_", search_date, ".rds", sep = "")))
 write_rds(s_segment_sequence, here("cleaned_data", paste("cleaned_s_segment_", search_date, ".rds", sep = "")))
 write_rds(l_segment_sequence, here("cleaned_data", paste("cleaned_l_segment_", search_date, ".rds", sep = "")))
-          
+
+
+# The list of sequences we have aligned previously
+previously_aligned <- read_csv(here("cleaned_data", "aligned_sequences.csv"))
+
+new_s <- s_segment_sequence %>%
+  filter(!accession_lassa %in% previously_aligned$accession_s) %>%
+  dplyr::select(accession_lassa, nuc_seq)
+dataframe2fas(new_s, file = here("cleaned_data", "new_s_sequences.fasta"))
+
+new_l <- l_segment_sequence %>%
+  filter(!accession_lassa %in% previously_aligned$accession_l) %>%
+  dplyr::select(accession_lassa, nuc_seq)
+dataframe2fas(new_l, file = here("cleaned_data", "new_l_sequences.fasta"))
+
+new_np <- np_sequences %>%
+  filter(!accession_lassa %in% previously_aligned$accession_np) %>%
+  dplyr::select(accession_lassa, np_seq)
+dataframe2fas(new_np, file = here("cleaned_data", "new_np_sequences.fasta"))
+
+new_gpc <- gpc_sequences %>%
+  filter(!accession_lassa %in% previously_aligned$accession_gp) %>%
+  dplyr::select(accession_lassa, gpc_seq)
+dataframe2fas(new_gpc, file = here("cleaned_data", "new_gpc_sequences.fasta"))
