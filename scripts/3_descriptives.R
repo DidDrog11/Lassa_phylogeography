@@ -56,13 +56,15 @@ afr <- World %>%
             by = "name") %>%
   st_transform(crs = st_crs("+proj=merc"))
   
-tm_shape(afr) + 
+tmap_save(
+  tm_shape(afr) + 
   tm_fill("n", title = "", style = "log10_pretty", as.count = T,
           textNA = "No records") +
   tm_layout(main.title = "Lassa virus sequences in GenBank",
             legend.outside = T) +
   tm_borders() +
-  tm_grid(alpha = 0.2) +
+  tm_grid(alpha = 0.2,
+          projection = 4326) +
   tm_xlab("Longitude") +
   tm_ylab("Latitude") +
   tm_scale_bar(color.dark = "gray60",
@@ -73,12 +75,16 @@ tm_shape(afr) +
              text.color = "gray60",
              position = "left") + 
   tm_shape(afr %>% filter(n > 0)) +
-  tm_text("name", size = 0.7) +
-  tmap_save(filename = here("outputs", "records_map.png"))
+  tm_text("name", size = 0.7),
+filename = here("outputs", "records_map.png"))
 
 
 # Nigeria mapping ---------------------------------------------------------
-nigeria <- read_rds(here("data", "nigeria_sf.rds")) %>%
+raster::getData(name = "GADM", download = TRUE,
+                country = "NGA", level = 1,
+                path = here("data"))
+
+nigeria <- read_rds(here("data", "gadm36_NGA_1_sp.rds")) %>%
   st_as_sf()
 
 region_summary <- geocoded %>%
@@ -99,25 +105,27 @@ nigeria_region <- nigeria %>%
   full_join(., nigeria_region,
   by = "NAME_1")
 
-tm_shape(nigeria_region) + 
-  tm_fill("n", title = "", style = "pretty", as.count = T,
-          textNA = "No records") +
-  tm_layout(main.title = "Lassa virus sequences from Nigeria",
-            legend.outside = T) +
-  tm_borders() +
-  tm_grid(alpha = 0.2) +
-  tm_xlab("Longitude") +
-  tm_ylab("Latitude") +
-  tm_scale_bar(color.dark = "gray60",
-               position = c("right", "bottom")) + 
-  tm_compass(type = "4star", 
-             text.size = 0.5, # set size of the compass
-             color.dark = "gray60", # color the compass
-             text.color = "gray60",
-             position = "left") + 
-  tm_shape(nigeria_region %>% filter(n > 0)) +
-  tm_text("NAME_1", size = 0.7) +
-  tmap_save(filename = here("outputs", "nigeria_map.png"))
+tmap_save(
+  tm_shape(nigeria_region) + 
+    tm_fill("n", title = "", style = "pretty", as.count = T,
+            textNA = "No records") +
+    tm_layout(main.title = "Lassa virus sequences from Nigeria",
+              legend.outside = T) +
+    tm_borders() +
+    tm_grid(alpha = 0.2,
+            projection = 4326) +
+    tm_xlab("Longitude") +
+    tm_ylab("Latitude") +
+    tm_scale_bar(color.dark = "gray60",
+                 position = c("right", "bottom")) + 
+    tm_compass(type = "4star", 
+               text.size = 0.5, # set size of the compass
+               color.dark = "gray60", # color the compass
+               text.color = "gray60",
+               position = "left") + 
+    tm_shape(nigeria_region %>% filter(n > 0)) +
+    tm_text("NAME_1", size = 0.7),
+  filename = here("outputs", "nigeria_map.png"))
 
 
 # Human/rodent ------------------------------------------------------------

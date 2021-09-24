@@ -7,7 +7,7 @@ set_entrez_key(entrez_key)
 # We pull all the accession numbers found in a search for Lassa mammarenavirus on the nucleotide dataset from NCBI
 ifelse(file.exists(here("data", "accession_2021-03-15.rds")),
         accession_lassa <- read_rds(here("data", "accession_2021-03-15.rds")),
-        accession_lassa <- insect::searchGB(query = '"Lassa mammarenavirus"[Organism]', db = "nucleotide", sequences = F)
+        accession_lassa <- searchGB(query = '"Lassa mammarenavirus"[Organism]', db = "nucleotide", sequences = F)
         )
 
 # We save the accession numbers we have identified on the day we ran the search
