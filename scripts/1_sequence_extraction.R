@@ -1,26 +1,73 @@
 # The date we ran the search
-search_date <- "2021-03-15"
+search_date <- "2021-09-24"
 
 # Set an entrez API key
 set_entrez_key(entrez_key)
 
-# We pull all the accession numbers found in a search for Lassa mammarenavirus on the nucleotide dataset from NCBI
-ifelse(file.exists(here("data", "accession_2021-03-15.rds")),
-        accession_lassa <- read_rds(here("data", "accession_2021-03-15.rds")),
-        accession_lassa <- searchGB(query = '"Lassa mammarenavirus"[Organism]', db = "nucleotide", sequences = F)
-        )
+# # We pull all the accession numbers found in a search for Lassa mammarenavirus on the nucleotide dataset from NCBI
+# ifelse(file.exists(here("data", "accession_2021-03-15.rds")),
+#         accession_lassa <- read_rds(here("data", paste0("accession_", search_date, ".rds"))),
+#         accession_lassa <- searchGB(query = '"Lassa mammarenavirus"[Organism]', db = "nucleotide", sequences = F)
+#         )
+# 
+# # We save the accession numbers we have identified on the day we ran the search
+# write_rds(accession_lassa, file = here("data", paste("accession_", search_date, ".rds", sep = "")))
 
-# We save the accession numbers we have identified on the day we ran the search
-write_rds(accession_lassa, file = here("data", paste("accession_", search_date, ".rds", sep = "")))
+accession_numbers <- read_csv(here("data", "accession_numbers_2021-09-24.csv")) %>%
+  pull()
 
 # We define these as accession numbers
-accession_lassa <- GBAccession(accession_lassa)
+accession_lassa <- GBAccession(accession_numbers)
 
-# If we already have the data from GenBank we read it in here, otherwise we download it
-ifelse(file.exists(here("data", "lassa_list_2021-03-15.rds")),
-       lassa_list <- read_rds(here("data", "lassa_list_2021-03-15.rds")),
-       lassa_list <- download_lassa(accession_lassa) # This uses the readGenBank function to download the entries for each accession number in accession_lassa and save the output
-       )
+# # If we already have the data from GenBank we read it in here, otherwise we download it
+# ifelse(file.exists(here("data", paste0("lassa_list_", search_date, ".rds"))),
+#        lassa_list <- read_rds(here("data", paste0("lassa_list_", search_date, ".rds"))),
+#        lassa_list <- download_lassa(accession_lassa) # This uses the readGenBank function to download the entries for each accession number in accession_lassa and save the output
+#        )
+
+lassa_list_1 <- list()
+lassa_list_2 <- list()
+lassa_list_3 <- list()
+lassa_list_4 <- list()
+lassa_list_5 <- list()
+lassa_list_6 <- list()
+lassa_list_7 <- list()
+lassa_list_8 <- list()
+lassa_list_9 <- list()
+
+for(i in 1:200){
+lassa_list_1[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 201:400){
+  lassa_list_2[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 401:600){
+  lassa_list_3[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 601:800){
+  lassa_list_4[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 801:1000){
+  lassa_list_5[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 1001:1400){
+  lassa_list_6[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 1401:1800){
+  lassa_list_7[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 1801:2100){
+  lassa_list_8[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+for(i in 2101:length(accession_numbers)){
+  lassa_list_9[i] <- readGenBank(GBAccession(accession_numbers[i]), partial = TRUE, verbose = FALSE)
+}
+
+lassa_list <- c(lassa_list_1, lassa_list_2, lassa_list_3, lassa_list_4, lassa_list_5,
+                lassa_list_6, lassa_list_7, lassa_list_8, lassa_list_9)
+
+lassa_list <- lassa_list[!sapply(lassa_list,is.null)]
+names(lassa_list) <- accession_numbers
 
 # This produces a table of all the accession numbers that we will fill with information we want
 lassa_strains <- tibble(accession_lassa)
@@ -242,3 +289,4 @@ missing_seq <- as.character(missing_sequences$accession_lassa)
 missing_sequences_list <- lassa_list[c(missing_seq)]
 
 write_rds(all_sequences, here("data", paste("all_sequences_", search_date, ".rds", sep = "")))
+write_csv(all_sequences, here("data", paste("all_sequences_", search_date, ".csv", sep = "")))
