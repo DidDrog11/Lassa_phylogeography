@@ -2,11 +2,13 @@
 if (!require("pacman")) install.packages("pacman")
 pkgs = 
   c("here",
+    "cowplot",
     "genbankr", 
     "ape",
     "rentrez",
     "tidyverse",
     "ggplot2",
+    "ggspatial",
     "insect",
     "lubridate",
     "tmap",

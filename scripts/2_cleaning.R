@@ -1,6 +1,8 @@
 source(here::here("scripts", "library_api.r"))
 
-all_sequences <- read_rds(here("data","all_sequences_2021-03-15.rds")) %>%
+search_date <- "2021-09-24"
+
+all_sequences <- read_rds(here("data", paste0("all_sequences_", search_date, ".rds"))) %>%
   mutate(region = snakecase::to_sentence_case(region),
          region = recode(region,
                          "Ebonyi state" = "Ebonyi",
@@ -12,7 +14,9 @@ all_sequences <- read_rds(here("data","all_sequences_2021-03-15.rds")) %>%
                          "Ondo state" = "Ondo",
                          "Plateau state" = "Plateau",
                          "Songo hospital sebgwema" = "Sebgwema",
-                         "Tararba" = "Taraba"))
+                         "Tararba" = "Taraba"),
+         accession_lassa = as.character(accession_lassa),
+         accession_lassa = str_remove(accession_lassa, "\\.1"))
 
 no_country <- all_sequences %>%
   filter(country == "NULL")
@@ -21,6 +25,9 @@ reference_sequences <- all_sequences %>%
   filter(accession_lassa %in% c("NC_004297", "NC_004296")) %>%
   mutate(segment = c("L","S"))
 # These are the genbank reference sequences
+
+all_sequences <- all_sequences %>%
+  filter(!accession_lassa %in% no_country$accession_lassa)
 
 np_ref_length <- reference_sequences %>%
   filter(!is.na(np_length)) %>%
@@ -107,19 +114,19 @@ previously_aligned <- read_csv(here("cleaned_data", "aligned_sequences.csv"))
 new_s <- s_segment_sequence %>%
   filter(!accession_lassa %in% previously_aligned$accession_s) %>%
   dplyr::select(accession_lassa, nuc_seq)
-dataframe2fas(new_s, file = here("cleaned_data", "new_s_sequences.fasta"))
+seqRFLP::dataframe2fas(new_s, file = here("cleaned_data", "new_s_sequences.fasta"))
 
 new_l <- l_segment_sequence %>%
   filter(!accession_lassa %in% previously_aligned$accession_l) %>%
   dplyr::select(accession_lassa, nuc_seq)
-dataframe2fas(new_l, file = here("cleaned_data", "new_l_sequences.fasta"))
+seqRFLP::dataframe2fas(new_l, file = here("cleaned_data", "new_l_sequences.fasta"))
 
 new_np <- np_sequences %>%
   filter(!accession_lassa %in% previously_aligned$accession_np) %>%
   dplyr::select(accession_lassa, np_seq)
-dataframe2fas(new_np, file = here("cleaned_data", "new_np_sequences.fasta"))
+seqRFLP::dataframe2fas(new_np, file = here("cleaned_data", "new_np_sequences.fasta"))
 
 new_gpc <- gpc_sequences %>%
   filter(!accession_lassa %in% previously_aligned$accession_gp) %>%
   dplyr::select(accession_lassa, gpc_seq)
-dataframe2fas(new_gpc, file = here("cleaned_data", "new_gpc_sequences.fasta"))
+seqRFLP::dataframe2fas(new_gpc, file = here("cleaned_data", "new_gpc_sequences.fasta"))
