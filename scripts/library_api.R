@@ -15,7 +15,8 @@ pkgs =
     "ggmap",
     "sf",
     "rnaturalearth",
-    "rnaturalearthdata"
+    "rnaturalearthdata",
+    "readxl"
   )
 pacman::p_load(pkgs, character.only = T)
 

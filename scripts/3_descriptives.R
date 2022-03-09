@@ -114,18 +114,29 @@ map_seqs <- w_africa %>%
   mutate(n = case_when(is.na(n) ~ as.numeric(0),
                        TRUE ~ as.numeric(n)))
 
-missing_coords = tibble(region = c("Silimi", "Safrani", "Khoria", "Brissa", "Denguedou", "Songo Hospital, Sebgwema", "Bantou", "Tanganya", "Gbetaya", "Odo-akaba"),
-                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698),
-                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286))
+missing_coords = tibble(region = c("Silimi", "Safrani", "Khoria", "Brissa", "Denguedou", "Songo Hospital, Sebgwema", "Bantou", "Tanganya", "Gbetaya", "Odo-akaba", "Damania"),
+                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698, -10.8667),
+                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286, 9.8))
+
+complete_geocode = bind_rows(geocoded %>%
+                               select(region, country, lon, lat) %>%
+                               distinct(),
+                             missing_coords) %>%
+  mutate(region = str_to_sentence(region),
+         country = str_to_sentence(country)) %>%
+  drop_na(lon, lat) %>%
+  group_by(region, country) %>%
+  arrange(lon, lat) %>%
+  slice(1)
 
 map_regional <- geocoded %>%
   drop_na(region) %>%
   filter(region != "unknown") %>%
   left_join(., missing_coords, by = "region") %>%
-  mutate(lon = case_when(is.na(lon.y) ~ lon.x,
-                         TRUE ~ lon.y),
-         lat = case_when(is.na(lat.y) ~ lat.x,
-                         TRUE ~ lat.y)) %>%
+  mutate(lon = case_when(region %in% missing_coords$region ~ lon.y,
+                         TRUE ~ lon.x),
+         lat = case_when(region %in% missing_coords$region ~ lat.y,
+                         TRUE ~ lat.x)) %>%
   group_by(lon, lat) %>%
   summarise(n = sqrt(n())) %>%
   st_as_sf(coords = c("lon", "lat")) %>%
