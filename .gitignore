@@ -2,4 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-/data
+
+# allow uploading of required data files
+data/*
+!data/accession_numbers_2021-09-24.csv
+!data/MRCA_L_segment.xlsx
+!data/MRCA_S_segment.xlsx

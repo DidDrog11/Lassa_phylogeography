@@ -1,3 +1,5 @@
+source(here::here("scripts", "library_api.r"))
+
 # The date we ran the search
 search_date <- "2021-09-24"
 
