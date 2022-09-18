@@ -13,8 +13,9 @@ included_records <- unique(c(np_gpc$accession_lassa,
                              l_seq$accession_lassa))
 
 included_phylogenetics <- read_csv(here("data", "included_accession.csv"))
-included_phylogenetics_september <- tibble(accession_lassa = c(included_phylogenetics$L_accession,
-                                                               included_phylogenetics$S_accession)) %>%
+included_phylogenetics_september <- included_phylogenetics %>%
+  mutate(accession_lassa = str_remove_all(accession_lassa, "\\.\\d+$")) %>%
+  arrange(segment) %>%
   filter(!is.na(accession_lassa))
 
 
