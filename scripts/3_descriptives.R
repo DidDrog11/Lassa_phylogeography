@@ -73,7 +73,172 @@ annual_sequences <- all_sequences %>%
 
 # Records mapping ---------------------------------------------------------
 
-geocoded <- all_sequences %>%
+# Attempt to enrich locations from citations
+# Andersen et al. collected samples from Kenema and Irrua
+andersen <- read_xlsx(here("data", "andersen_2015_accession.xlsx")) %>%
+  select(country = "Country", s_accession = "S Acc. #", l_accession = "L Acc. #") %>%
+  mutate(s_accession = case_when(s_accession == "N/A" ~ as.character(NA),
+                                 TRUE ~ s_accession),
+         l_accession = case_when(l_accession == "N/A" ~ as.character(NA),
+                                 TRUE ~ l_accession)) %>%
+  filter(country %in% c("Sierra Leone", "Nigeria")) %>%
+  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  drop_na(accession_lassa) %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"),
+         region = case_when(country == "Nigeria" ~ "Edo",
+                            country == "Sierra Leone" ~ "Kenema")) %>%
+  mutate(host = case_when(accession_lassa %in% c("KM822128.1", "KM822127.1") ~ "Homo sapiens")) %>%
+  select(-name)
+
+# Yadouleton et al. collected samples from an outbreak in Benin
+yadouleton <- read_xlsx(here("data", "yadouleton_2020_accession.xlsx")) %>%
+  filter(!is.na(region)) %>%
+  select(country, region, gp_accession = "N° GP", np_accession = "N° NP", l_accession = "N° L") %>%
+  mutate(gp_accession = case_when(gp_accession == "NA" ~ as.character(NA),
+                                 TRUE ~ gp_accession),
+         np_accession = case_when(np_accession == "NA" ~ as.character(NA),
+                                 TRUE ~ np_accession),
+         l_accession = case_when(l_accession == "NA" ~ as.character(NA),
+                                  TRUE ~ l_accession)) %>%
+  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  drop_na(accession_lassa) %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1")) %>%
+  select(-name)
+
+# Mateo et al. produced a sequence from a fatality from Bangolo District, Cote d'Ivoire
+mateo <- all_sequences %>%
+  filter(accession_lassa %in% c("MK978784.1", "MK978785.1")) %>%
+  mutate(region = "Bangolo") %>%
+  select(accession_lassa, country, region)
+
+# Baumann and Mandy samples were from Bamako
+baumann <- all_sequences %>%
+  filter(accession_lassa %in% c("MH473587.1", "MH473586.1")) %>%
+  mutate(region = "Bamako") %>%
+  select(accession_lassa, country, region)
+
+# Welch et al. samples were from several regions in Liberia
+welch <- read_xlsx(here("data", "welch_2019_accession.xlsx")) %>%
+  select(accession_lassa, country, region) %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"),
+         host = "Homo Sapiens")
+
+# Gunther et al. sequence is from Bantou, Guinea
+gunther <- all_sequences %>%
+  filter(accession_lassa %in% c("MK044799.1")) %>%
+  mutate(region = "Bantou") %>%
+  select(accession_lassa, country, region)
+
+# Siddle et al. 2018
+siddle <- read_xlsx(here("data", "siddle_2018_accession.xlsx")) %>%
+  mutate(region = str_split(id, pattern = "-", simplify = TRUE)[,2],
+         country = "Nigeria") %>%
+  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  drop_na(accession_lassa) %>%
+  select(accession_lassa, country, region)
+
+# Metsky at al. 2019
+metsky <- read_xlsx(here("data", "metsky_2019_accession.xlsx")) %>%
+  mutate(country = "Nigeria")
+
+# Rossi et al.
+rossi <- all_sequences %>%
+  filter(accession_lassa %in% c("KU978807.1", "KU978808.1", "KU978811.1", "KU978812.1")) %>%
+  select(accession_lassa, country) %>%
+  mutate(region = case_when(country == "Guinea" ~ "Faranah",
+                            country == "Nigeria" ~ "Osun"))
+
+# Omilabu et al. 2016
+omilabu <- all_sequences %>%
+  filter(accession_lassa %in% c("DQ010031.1", "DQ010030.1", "KJ944261.1", "KJ944260.1", "KJ944259.1")) %>%
+  select(accession_lassa, country) %>%
+  mutate(region = case_when(accession_lassa %in% c("DQ010031.1", "DQ010030.1") ~ "Edo",
+                            accession_lassa == "KJ944261.1" ~ "Lagos",
+                            accession_lassa == "KJ944260.1" ~ "Ebonyi",
+                            accession_lassa == "KJ944259.1" ~ "Enugu"),
+         host = "Homo sapiens")
+
+# Vieth et al. 2007 with missing countries were from Sierra Leone
+vieth <- all_sequences %>%
+  filter(str_starts(accession_lassa, "AY3")) %>%
+  mutate(country = "Sierra Leone",
+         host = "Homo sapiens") %>%
+  select(accession_lassa, country, region, host) %>%
+  bind_rows(all_sequences %>%
+              filter(accession_lassa %in% c("AY870334.1", "AY693640.1", "AY693639.1",
+                                            "AY693638.1", "AY693637.1")) %>%
+              mutate(host = "Homo sapiens") %>%
+            select(accession_lassa, country, region, host))
+
+all_sequences$host[all_sequences$accession_lassa %in% c("AY179172.1", "AY179173.1")] <- "Homo sapiens"
+
+# Ehichioya et al. 2011 and 2012
+ehichioya <- read_xlsx(here("data", "ehichioya_2011_accession.xlsx")) %>%
+  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  drop_na(accession_lassa) %>%
+  select(accession_lassa, region) %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"))
+
+# Safronetz et al. 2010
+safronetz <- all_sequences %>%
+  filter(str_starts(name_nuc_seq, "Soromba|Ouoma|Komina|Bamba")) %>%
+  mutate(region = "Sikasso") %>%
+  select(accession_lassa, country, region)
+
+# Atkin et al. 2009
+atkin <- all_sequences %>%
+  filter(accession_lassa == "FJ824031.1") %>%
+  mutate(region = "Sikasso") %>%
+  select(accession_lassa, country, region)
+
+# Kouadio et al. 2015
+kouadio <- all_sequences %>%
+  filter(accession_lassa %in% c("LN823985.1", "LN823984.1", "LN823983.1", "LN823982.1")) %>%
+  mutate(region = "Komborodougou") %>%
+  select(accession_lassa, country, region)
+
+# Leski et al. 2014
+leski <- read_xlsx(here("data", "leski_2014_accession.xlsx")) %>%
+  select(accession_lassa, region) %>%
+  mutate(country = "Sierra Leone")
+
+# Bonney et al. 2013
+all_sequences <- all_sequences %>%
+  mutate(country = case_when(accession_lassa == "KF425246.1" ~ "Liberia",
+                             TRUE ~ country),
+         region = case_when(accession_lassa == "KF425246.1" ~ "Lofa",
+                            TRUE ~ region))
+
+# Bowen et al. 2000
+bowen <- read_xlsx(here("data", "bowen_2000_accession.xlsx")) %>%
+  select(accession_lassa, country, region, host)
+
+# Lecompte et al. 2006
+lecompte <- all_sequences %>%
+  filter(str_starts(accession_lassa, "DQ832")) %>%
+  mutate(host = "Mastomys natalensis") %>%
+  select(accession_lassa, country, region, host)
+
+found_locations <- bind_rows(andersen, yadouleton, mateo, baumann, welch,
+                             gunther, siddle, metsky, rossi, omilabu,
+                             vieth, ehichioya, safronetz, atkin,
+                             kouadio, leski, bonney, bowen, lecompte) %>%
+  select(accession_lassa, country, region, host)
+
+enriched <- all_sequences %>%
+  mutate(country = case_when(country == "NULL" ~ as.character(NA),
+                             TRUE ~ country)) %>%
+  left_join(found_locations, by = c("accession_lassa")) %>%
+  mutate(country = coalesce(country.x, country.y),
+         region = coalesce(region.x, region.y),
+         host = coalesce(host.y, host.x)) %>%
+  select(accession_lassa, name_nuc_seq, host, year, country, region) %>%
+  distinct()
+
+# Ondo itself identifies as a region in Osun state it should fix it by specifying the state
+enriched$region[str_detect(enriched$region, "Ondo|ONDO")] <- "Ondo state"
+
+geocoded <- enriched %>%
   mutate(region = ifelse(region == "Unknown", NA, region)) %>%
   unite("location", c(region, country), sep = ", ", na.rm = T, remove = F)
 
@@ -96,6 +261,25 @@ geocoded <- geocoded %>%
          lat = case_when(location == "Togo" ~ 6.133,
                          TRUE ~ lat))
 
+missing_coords = tibble(region = c("Silimi", "Safrani", "Khoria", "Brissa", "Denguedou", "Songo Hospital, Sebgwema", "Bantou", "Tanganya", "Gbetaya", "Odo-akaba", "Damania",
+                                   "Nyandeyama", "Worogui"),
+                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698, -10.8667, -11.05305, 2.67307),
+                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286, 9.8, 8.46485, 8.884305))
+
+fix_coords <- geocoded %>%
+  filter(!is.na(region)) %>%
+  mutate(matched_lon = case_when(lon %in% country_coordinate$country_lon ~ FALSE,
+                                 TRUE ~ TRUE),
+         matched_lat = case_when(lat %in% country_coordinate$country_lat ~ FALSE,
+                                 TRUE ~ TRUE)) %>%
+  filter(matched_lon == FALSE | matched_lat == FALSE) %>%
+  left_join(missing_coords, by = c("region")) %>%
+  select(accession_lassa, name_nuc_seq, host, location, country, region, year, lon = lon.y, lat = lat.y)
+
+geocoded <- geocoded %>%
+  filter(!accession_lassa %in% fix_coords$accession_lassa) %>%
+  bind_rows(fix_coords)
+
 country_geocode <- geocoded %>%
   left_join(., country_coordinate, by = "country")
 
@@ -115,9 +299,7 @@ map_seqs <- w_africa %>%
   mutate(n = case_when(is.na(n) ~ as.numeric(0),
                        TRUE ~ as.numeric(n)))
 
-missing_coords = tibble(region = c("Silimi", "Safrani", "Khoria", "Brissa", "Denguedou", "Songo Hospital, Sebgwema", "Bantou", "Tanganya", "Gbetaya", "Odo-akaba", "Damania"),
-                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698, -10.8667),
-                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286, 9.8))
+write_rds(geocoded, here("data", "geocoded_raw.rds"))
 
 complete_geocode = bind_rows(geocoded %>%
                                select(region, country, lon, lat) %>%

@@ -21,6 +21,7 @@ mrca_enriched <- mrca_combined %>%
   left_join(., complete_geocode, by = c("region")) %>%
   drop_na(region) %>%
   select(accession_number, segment, host, region, country, year, tmrca, lon, lat) %>%
+  drop_na(lon, lat) %>%
   st_as_sf(coords = c("lon", "lat")) %>%
   st_set_crs(value = "EPSG:4326") %>%
   mutate(region = case_when(str_detect(region, "Ebonyi") ~ "Ebonyi",
@@ -29,7 +30,8 @@ mrca_enriched <- mrca_combined %>%
                             str_detect(region, "Tar") ~ "Taraba",
                             TRUE ~ region))
 
-nigeria_shapefile <- read_rds(here("data", "nigeria_sf.rds")) %>%
+nigeria_shapefile <- read_rds(here("data_download", "gadm36_NGA_1_sp.rds")) %>%
+  st_as_sf() %>%
   st_set_crs(value = "EPSG:4326")
 nigeria_bbox <- st_bbox(nigeria_shapefile)
 
@@ -56,8 +58,12 @@ A <- ggplot() +
                          style = north_arrow_minimal(text_size = 8)) +
   annotation_scale(height = unit(0.1, "cm"),
                    location = "tr") +
-  labs(fill = "MRCA") +
-  theme(strip.text = element_text(hjust = 0, size = 14))
+  labs(fill = "MRCA",
+       title = "A") +
+  theme_bw() +
+  theme(strip.text = element_text(hjust = 0, size = 14),
+        legend.direction = "horizontal",
+        legend.position = "bottom")
 
 B <- ggplot(mrca_enriched) +
   geom_histogram(aes(x = tmrca), fill = "#398053") +
@@ -65,9 +71,8 @@ B <- ggplot(mrca_enriched) +
   labs(x = "MRCA",
        y = element_blank(),
        fill = "Region") +
-  theme_minimal() +
+  theme_bw() +
   theme(strip.text = element_text(hjust = 0))
 
-A_B <- plot_grid(plotlist = list(A, B), align = "v", nrow = 2, rel_heights = c(4, 2), labels = c("A", "B"))
-
-save_plot(A_B, filename = here("outputs", "combined_fig5.png"), base_width = 16, base_height = 18)
+save_plot(A, filename = here("outputs", "supplementary_figure_2a.png"), base_width = 8, base_height = 10)
+save_plot(B, filename = here("outputs", "supplementary_figure_2b.png"), base_width = 6, base_height = 8)
