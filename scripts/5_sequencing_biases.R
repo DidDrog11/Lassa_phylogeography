@@ -200,3 +200,12 @@ combined_plot <- plot_grid(plotlist = plot_level_1, ncol = 1)
 
 save_plot(filename = here("outputs", "sequence_locations.png"), plot = combined_plot, base_height = 8, base_width = 6)
 save_plot(filename = here("outputs", "sequence_locations.pdf"), plot = combined_plot, base_height = 8, base_width = 6)
+
+# Supplementary figure for country names
+country_locations <- w_africa %>%
+  ggplot() +
+  geom_sf() +
+  geom_sf_label_repel(aes(label = NAME_0)) +
+  theme_bw()
+
+save_plot(filename = here("outputs", "country_locations.png"), plot = country_locations, base_height = 8, base_width = 6)
