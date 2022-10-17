@@ -185,21 +185,29 @@ level_1_host <- lapply(level_1_host, function(x)
 
 plot_level_1 <- lapply(level_1_host, function(x)
   st_as_sf(x, crs = st_crs(gadm)) %>%
-    mutate(log_all_samples = log(all_samples)) %>%
+    mutate(log_all_samples = log10(all_samples)) %>%
     ggplot() +
     geom_sf(aes(fill = log_all_samples)) +
     geom_sf(data = w_africa, fill = NA, lwd = 0.6, colour = "black") +
-    labs(fill = "Number of sequences (log)",
+    labs(fill = bquote('Number of sequences '(log^10)),
          title = paste(unique(x$host_clean))) +
-    scale_fill_continuous(limits = c(0, 7)) +
+    scale_fill_continuous(limits = c(0, 3)) +
     theme_bw() +
     theme(legend.direction = "horizontal",
           legend.position = "bottom"))
 
-combined_plot <- plot_grid(plotlist = plot_level_1, ncol = 1)
+combined_plot <- plot_grid(plotlist = list(plot_level_1[[1]] +
+                                             theme(legend.position = "none"),
+                                           plot_level_1[[2]] +
+                                             theme(legend.position = "none")),
+                           ncol = 1)
+legend_b <- get_legend(plot_level_1[[1]] + 
+    guides(color = guide_legend(nrow = 1)))
 
-save_plot(filename = here("outputs", "sequence_locations.png"), plot = combined_plot, base_height = 8, base_width = 6)
-save_plot(filename = here("outputs", "sequence_locations.pdf"), plot = combined_plot, base_height = 8, base_width = 6)
+plot_legend <- plot_grid(combined_plot, legend_b, ncol = 1, rel_heights = c(1, .1))
+
+save_plot(filename = here("outputs", "sequence_locations.png"), plot = plot_legend, base_height = 8, base_width = 6)
+save_plot(filename = here("outputs", "sequence_locations.pdf"), plot = plot_legend, base_height = 8, base_width = 6)
 
 # Supplementary figure for country names
 country_locations <- w_africa %>%
