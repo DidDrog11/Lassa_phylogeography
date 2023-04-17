@@ -42,37 +42,62 @@ mrca_summary <- tibble(mrca_enriched) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   arrange(tmrca) %>%
-  pivot_wider(names_from = tmrca,
-              values_from = n) %>%
-  mutate(across(.cols = 5:62, ~ replace_na(.x, 0)))
-mrca_summary$radius <- 0.35
+  mutate(tmrca_discrete = cut(tmrca, c(1400, 1600, 1700, 1800, 1900, 1950, 1980, 1990, 2000, 2010, 2020), dig.lab = 4, include.lowest = TRUE))
 
-A <- ggplot() +
+S_segment_mrca <- ggplot() +
   geom_sf(data = nigeria_shapefile, alpha = 0.5) +
   coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
-  geom_scatterpie(data = mrca_summary, aes(x = x, y = y, group = region, r = radius), cols = colnames(mrca_summary[,c(5:62)]), color = NA) +
-  scale_fill_viridis_d() +
-  facet_wrap(~ segment) +
-  theme_minimal() +
+  geom_point(data = mrca_summary %>%
+               filter(segment == "S segment"),
+             aes(x = x,
+                 y = y,
+                 colour = tmrca_discrete),
+             alpha = 1,
+             size = 0.4,
+             position = position_jitter(width = 0.25, height = 0.25)) +
+  scale_colour_viridis_d(guide = guide_coloursteps(show.limits = TRUE), drop = FALSE) +
+  theme_bw() +
+  labs(colour = "MRCA",
+       x = element_blank(),
+       y = element_blank()) +
   annotation_north_arrow(height = unit(1, "cm"),
                          style = north_arrow_minimal(text_size = 8)) +
   annotation_scale(height = unit(0.1, "cm"),
-                   location = "tr") +
-  labs(fill = "MRCA",
-       title = "A") +
-  theme_bw() +
-  theme(strip.text = element_text(hjust = 0, size = 14),
-        legend.direction = "horizontal",
-        legend.position = "bottom")
+                   location = "tr")
 
-B <- ggplot(mrca_enriched) +
-  geom_histogram(aes(x = tmrca), fill = "#398053") +
-  facet_wrap(~ segment) +
-  labs(x = "MRCA",
-       y = element_blank(),
-       fill = "Region") +
+L_segment_mrca <- ggplot() +
+  geom_sf(data = nigeria_shapefile, alpha = 0.5) +
+  coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
+  geom_point(data = mrca_summary %>%
+               filter(segment == "L segment"),
+             aes(x = x,
+                 y = y,
+                 colour = tmrca_discrete),
+             alpha = 1,
+             size = 0.4,
+             position = position_jitter(width = 0.25, height = 0.25)) +
+  scale_colour_viridis_d(guide = guide_coloursteps(show.limits = TRUE), drop = FALSE) +
   theme_bw() +
-  theme(strip.text = element_text(hjust = 0))
+  labs(colour = "MRCA",
+       x = element_blank(),
+       y = element_blank()) +
+  annotation_north_arrow(height = unit(1, "cm"),
+                         style = north_arrow_minimal(text_size = 8)) +
+  annotation_scale(height = unit(0.1, "cm"),
+                   location = "tr")
 
-save_plot(A, filename = here("outputs", "supplementary_figure_2a.png"), base_width = 8, base_height = 10)
-save_plot(B, filename = here("outputs", "supplementary_figure_2b.png"), base_width = 6, base_height = 8)
+legend <- get_legend(L_segment_mrca +
+  theme(legend.direction = "horizontal",
+        legend.key.width = unit(2, "cm")))
+
+figure_3 <- plot_grid(plotlist = list(S_segment_mrca +
+                                        theme(legend.position = "none"),
+                                      L_segment_mrca +
+                                        theme(legend.position = "none"),
+                                      legend),
+                      ncol = 1, 
+                      labels = c("A", "B", " "),
+                      rel_heights = c(1, 1, 0.2))
+
+save_plot(figure_3, filename = here("outputs", "Figure_3.png"), base_width = 7, base_height = 8)
+save_plot(figure_3, filename = here("outputs", "Figure_3.pdf"), base_width = 7, base_height = 8)

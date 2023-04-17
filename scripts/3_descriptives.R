@@ -13,11 +13,8 @@ included_records <- unique(c(np_gpc$accession_lassa,
                              l_seq$accession_lassa))
 
 included_phylogenetics <- read_csv(here("data", "included_accession.csv"))
-included_phylogenetics_september <- included_phylogenetics %>%
-  mutate(accession_lassa = str_remove_all(accession_lassa, "\\.\\d+$")) %>%
-  arrange(segment) %>%
-  filter(!is.na(accession_lassa))
-
+included_phylogenetics_september <- bind_rows(tibble(segment = "L", accession_lassa = included_phylogenetics$L_accession),
+                                              tibble(segment = "S", accession_lassa = included_phylogenetics$S_accession))
 
 included_records <- tibble(included_phylogenetics_september) %>%
   left_join(., tibble(bind_rows(np_gpc, l_z, s_seq, l_seq) %>%
@@ -119,7 +116,8 @@ baumann <- all_sequences %>%
 
 # Welch et al. samples were from several regions in Liberia
 welch <- read_xlsx(here("data", "welch_2019_accession.xlsx")) %>%
-  select(accession_lassa, country, region) %>%
+  select(l_accession, s_accession, country = Country, region = `County or prefecture`) %>%
+  pivot_longer(cols = c("l_accession", "s_accession"), names_to = "segment", values_to = "accession_lassa") %>%
   mutate(accession_lassa = paste0(accession_lassa, ".1"),
          host = "Homo Sapiens")
 
@@ -131,15 +129,17 @@ gunther <- all_sequences %>%
 
 # Siddle et al. 2018
 siddle <- read_xlsx(here("data", "siddle_2018_accession.xlsx")) %>%
-  mutate(region = str_split(id, pattern = "-", simplify = TRUE)[,2],
+  mutate(region = str_split(ID, pattern = "-", simplify = TRUE)[,2],
          country = "Nigeria") %>%
-  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  pivot_longer(cols = contains("Accession"), values_to = "accession_lassa") %>%
   drop_na(accession_lassa) %>%
-  select(accession_lassa, country, region)
+  select(accession_lassa, country, region) %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"))
 
 # Metsky at al. 2019
 metsky <- read_xlsx(here("data", "metsky_2019_accession.xlsx")) %>%
-  mutate(country = "Nigeria")
+  mutate(country = "Nigeria") %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"))
 
 # Rossi et al.
 rossi <- all_sequences %>%
@@ -176,7 +176,7 @@ all_sequences$host[all_sequences$accession_lassa %in% c("AY179172.1", "AY179173.
 ehichioya <- read_xlsx(here("data", "ehichioya_2011_accession.xlsx")) %>%
   pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
   drop_na(accession_lassa) %>%
-  select(accession_lassa, region) %>%
+  select(accession_lassa, country, region) %>%
   mutate(accession_lassa = paste0(accession_lassa, ".1"))
 
 # Safronetz et al. 2010
@@ -199,19 +199,22 @@ kouadio <- all_sequences %>%
 
 # Leski et al. 2014
 leski <- read_xlsx(here("data", "leski_2014_accession.xlsx")) %>%
+  pivot_longer(cols = contains("accession"), values_to = "accession_lassa") %>%
+  drop_na(accession_lassa) %>%
   select(accession_lassa, region) %>%
-  mutate(country = "Sierra Leone")
+  mutate(country = "Sierra Leone") %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"))
 
 # Bonney et al. 2013
-all_sequences <- all_sequences %>%
-  mutate(country = case_when(accession_lassa == "KF425246.1" ~ "Liberia",
-                             TRUE ~ country),
-         region = case_when(accession_lassa == "KF425246.1" ~ "Lofa",
-                            TRUE ~ region))
+bonney <- all_sequences %>%
+  filter(accession_lassa %in% c("KF425246.1")) %>%
+  mutate(country = "Liberia",
+         region = "Lofa")
 
 # Bowen et al. 2000
 bowen <- read_xlsx(here("data", "bowen_2000_accession.xlsx")) %>%
-  select(accession_lassa, country, region, host)
+  select(accession_lassa, country, region, host = species)  %>%
+  mutate(accession_lassa = paste0(accession_lassa, ".1"))
 
 # Lecompte et al. 2006
 lecompte <- all_sequences %>%
@@ -227,11 +230,19 @@ found_locations <- bind_rows(andersen, yadouleton, mateo, baumann, welch,
 
 enriched <- all_sequences %>%
   mutate(country = case_when(country == "NULL" ~ as.character(NA),
-                             TRUE ~ country)) %>%
+                             TRUE ~ country),
+         host = case_when(host == "NULL" ~ as.character(NA),
+                          TRUE ~ host),
+         region = case_when(region == "NULL" ~ as.character(NA),
+                            is.na(region) ~ as.character(NA),
+                            TRUE ~ region)) %>%
   left_join(found_locations, by = c("accession_lassa")) %>%
-  mutate(country = coalesce(country.x, country.y),
-         region = coalesce(region.x, region.y),
+  group_by(accession_lassa) %>%
+  mutate(country = coalesce(country.y, country.x),
+         region = coalesce(region.y, region.x),
          host = coalesce(host.y, host.x)) %>%
+  arrange(accession_lassa, region, country, host, year) %>%
+  slice(1) %>%
   select(accession_lassa, name_nuc_seq, host, year, country, region) %>%
   distinct()
 
@@ -262,9 +273,9 @@ geocoded <- geocoded %>%
                          TRUE ~ lat))
 
 missing_coords = tibble(region = c("Silimi", "Safrani", "Khoria", "Brissa", "Denguedou", "Songo Hospital, Sebgwema", "Bantou", "Tanganya", "Gbetaya", "Odo-akaba", "Damania",
-                                   "Nyandeyama", "Worogui"),
-                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698, -10.8667, -11.05305, 2.67307),
-                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286, 9.8, 8.46485, 8.884305))
+                                   "Nyandeyama", "Worogui", "Jirandogo"),
+                        lon = c(-10.65, -10.738367, -10.893033, -10.688767, -10.448611, -10.948721, -10.583333, -10.972783, -11.040150, 2.601698, -10.8667, -11.05305, 2.67307, -0.345833),
+                        lat = c(9.966667,  10.057817, 9.942267, 10.216833, 8.495556, 8.004604, 10.066667, 10.000400, 9.841017, 8.774286, 9.8, 8.46485, 8.884305, 8.347167))
 
 fix_coords <- geocoded %>%
   filter(!is.na(region)) %>%
@@ -314,12 +325,13 @@ complete_geocode = bind_rows(geocoded %>%
 
 map_regional <- geocoded %>%
   drop_na(region) %>%
-  filter(region != "unknown") %>%
+  filter(!str_detect(region, "unknown|UNKNOWN")) %>%
   left_join(., missing_coords, by = "region") %>%
   mutate(lon = case_when(region %in% missing_coords$region ~ lon.y,
                          TRUE ~ lon.x),
          lat = case_when(region %in% missing_coords$region ~ lat.y,
                          TRUE ~ lat.x)) %>%
+  drop_na(lon, lat) %>%
   group_by(lon, lat) %>%
   summarise(n = sqrt(n())) %>%
   st_as_sf(coords = c("lon", "lat")) %>%

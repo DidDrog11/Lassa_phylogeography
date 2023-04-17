@@ -22,7 +22,8 @@ pkgs =
     "mgcViz",
     "raster",
     "colorspace",
-    "scatterpie"
+    "scatterpie",
+    "terra",
   )
 pacman::p_load(pkgs, character.only = T)
 
@@ -35,6 +36,6 @@ google_key <- rstudioapi::askForSecret("google API key")
 
 register_google(key = google_key)
 
-conflict_prefer("select", "dplyr", "raster")
+conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
 conflict_prefer("getData", "raster")

@@ -13,7 +13,7 @@ gadm <- lapply(iso_3, function(x) getData(name = "GADM", country = x, level = 1,
 gadm <- do.call(bind, gadm) %>%
   st_as_sf()
 
-table(!is.na(geocoded$region)) # 1761 sequences have region locations
+table(!is.na(geocoded$region)) # 1971 sequences have region locations
 
 # All samples
 
@@ -50,7 +50,14 @@ nig_epi <- read_xlsx(here("data", "suspected_confirmed_deaths.xlsx")) %>%
                             TRUE ~ str_to_title(str_replace_all(region, "_", " ")))) %>%
   filter(region != "All")
 
+pop_2005 <- rast(here("data", "wa_pop_2005.tif"))
+
+median_pop_density <- terra::extract(pop_2005, level_1) %>%
+  group_by(ID) %>%
+  summarise(median_pop = median(pop_2005))
+
 df_1 <- level_1 %>%
+  cbind(median_pop_density) %>%
   left_join(epi, by = c("NAME_0" = "country")) %>%
   left_join(nig_epi, by = c("NAME_0" = "country", "NAME_1" = "region")) %>%
   mutate(confirmed_cases = coalesce(regional_cases, national_cases)) %>%
@@ -60,7 +67,7 @@ df_1 <- level_1 %>%
          lon = st_coordinates(st_centroid(geometry))[1],
          lat = st_coordinates(st_centroid(geometry))[2]) %>%
   tibble() %>%
-  select(NAME_0, GID_1, all_samples, confirmed_cases, lon, lat)
+  select(NAME_0, GID_1, all_samples, median_pop, confirmed_cases, lon, lat)
 
 m_1 <- gam(all_samples ~ s(lon, lat, bs = "ts", k = 102),
     family = "tw",
@@ -115,17 +122,17 @@ sequencing_effort <- model_1_raster +
         panel.grid = element_line(color = col_grid)) +
   theme_bw()
 
-save_plot(filename = here("outputs", "modeled_effort.png"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
-save_plot(filename = here("outputs", "modeled_effort.pdf"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
+save_plot(filename = here("outputs", "Figure_2.png"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
+save_plot(filename = here("outputs", "Figure_2.pdf"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
 
-m_2 <- gam(all_samples ~ s(lon, lat, bs = "ts", k = 102) + s(confirmed_cases, k = 13),
+m_2 <- gam(all_samples ~ s(lon, lat, bs = "ts", k = 102) + s(median_pop, k = 10),
            family = "tw",
            data = df_1,
            select = TRUE)
 
 gam.check(m_2)
 
-viz_m1 <- getViz(m_2)
+viz_m2 <- getViz(m_2)
 
 model_2_raster <- plot(sm(viz_m2, 1), n = 300, too.far = 0.08) +
   l_fitRaster(pTrans = zto1(0.05, 2, 0.1)) +
@@ -156,7 +163,7 @@ host_geo <- geocoded %>%
   drop_na(lon, lat, region) %>%
   mutate(host_clean = case_when(is.null(host) ~ as.character(NA),
                                 host == "NULL" ~ as.character(NA),
-                          host == "Homo sapiens" ~ "Human",
+                          str_detect(host, "Homo|Human") ~ "Human",
                           TRUE ~ "Rodent")) %>%
   filter(host != "NULL") %>%
   group_by(lon, lat, host_clean) %>%
@@ -189,7 +196,7 @@ plot_level_1 <- lapply(level_1_host, function(x)
     ggplot() +
     geom_sf(aes(fill = log_all_samples)) +
     geom_sf(data = w_africa, fill = NA, lwd = 0.6, colour = "black") +
-    labs(fill = bquote('Number of sequences '(log^10)),
+    labs(fill = bquote('Number of sequences '(log[10])),
          title = paste(unique(x$host_clean))) +
     scale_fill_continuous(limits = c(0, 3)) +
     theme_bw() +
@@ -206,14 +213,16 @@ legend_b <- get_legend(plot_level_1[[1]] +
 
 plot_legend <- plot_grid(combined_plot, legend_b, ncol = 1, rel_heights = c(1, .1))
 
-save_plot(filename = here("outputs", "sequence_locations.png"), plot = plot_legend, base_height = 8, base_width = 6)
-save_plot(filename = here("outputs", "sequence_locations.pdf"), plot = plot_legend, base_height = 8, base_width = 6)
+save_plot(filename = here("outputs", "Figure_1.png"), plot = plot_legend, base_height = 8, base_width = 6)
+save_plot(filename = here("outputs", "Figure_1.pdf"), plot = plot_legend, base_height = 8, base_width = 6)
 
 # Supplementary figure for country names
 country_locations <- w_africa %>%
   ggplot() +
   geom_sf() +
   geom_sf_label_repel(aes(label = NAME_0)) +
-  theme_bw()
+  theme_bw() +
+  labs(x = element_blank(),
+       y = element_blank())
 
 save_plot(filename = here("outputs", "country_locations.png"), plot = country_locations, base_height = 8, base_width = 6)
