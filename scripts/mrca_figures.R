@@ -45,7 +45,7 @@ mrca_summary <- tibble(mrca_enriched) %>%
   mutate(tmrca_discrete = cut(tmrca, c(1400, 1600, 1700, 1800, 1900, 1950, 1980, 1990, 2000, 2010, 2020), dig.lab = 4, include.lowest = TRUE))
 
 S_segment_mrca <- ggplot() +
-  geom_sf(data = nigeria_shapefile, alpha = 0.5) +
+  geom_sf(data = nigeria_shapefile) +
   coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
   geom_point(data = mrca_summary %>%
                filter(segment == "S segment"),
@@ -66,7 +66,7 @@ S_segment_mrca <- ggplot() +
                    location = "tr")
 
 L_segment_mrca <- ggplot() +
-  geom_sf(data = nigeria_shapefile, alpha = 0.5) +
+  geom_sf(data = nigeria_shapefile) +
   coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
   geom_point(data = mrca_summary %>%
                filter(segment == "L segment"),
@@ -99,5 +99,5 @@ figure_3 <- plot_grid(plotlist = list(S_segment_mrca +
                       labels = c("A", "B", " "),
                       rel_heights = c(1, 1, 0.2))
 
-save_plot(figure_3, filename = here("outputs", "Figure_3.png"), base_width = 7, base_height = 8)
-save_plot(figure_3, filename = here("outputs", "Figure_3.pdf"), base_width = 7, base_height = 8)
+save_plot(figure_3, filename = here("outputs", "Figure_3.png"), base_width = 5, base_height = 8)
+save_plot(figure_3, filename = here("outputs", "Figure_3.pdf"), base_width = 5, base_height = 8)
