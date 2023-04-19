@@ -248,6 +248,8 @@ enriched <- all_sequences %>%
 
 # Ondo itself identifies as a region in Osun state it should fix it by specifying the state
 enriched$region[str_detect(enriched$region, "Ondo|ONDO")] <- "Ondo state"
+enriched$region[str_detect(enriched$region, "Nasarawa State")] <- "Nasarawa"
+enriched$region[str_detect(enriched$region, "Abuja")] <- "Federal Capital Territory"
 
 geocoded <- enriched %>%
   mutate(region = ifelse(region == "Unknown", NA, region)) %>%

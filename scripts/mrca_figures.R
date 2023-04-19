@@ -1,4 +1,5 @@
 source(here::here("scripts", "library_api.r"))
+# Run 3_descriptives.R first
 
 mrca_l <- read_xlsx(here("data", "MRCA_L_segment.xlsx"))
 mrca_s <- read_xlsx(here("data", "MRCA_S_segment.xlsx"))
@@ -45,7 +46,7 @@ mrca_summary <- tibble(mrca_enriched) %>%
   mutate(tmrca_discrete = cut(tmrca, c(1400, 1600, 1700, 1800, 1900, 1950, 1980, 1990, 2000, 2010, 2020), dig.lab = 4, include.lowest = TRUE))
 
 S_segment_mrca <- ggplot() +
-  geom_sf(data = nigeria_shapefile) +
+  geom_sf(data = nigeria_shapefile, fill = "white") +
   coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
   geom_point(data = mrca_summary %>%
                filter(segment == "S segment"),
@@ -53,7 +54,7 @@ S_segment_mrca <- ggplot() +
                  y = y,
                  colour = tmrca_discrete),
              alpha = 1,
-             size = 0.4,
+             size = 0.6,
              position = position_jitter(width = 0.25, height = 0.25)) +
   scale_colour_viridis_d(guide = guide_coloursteps(show.limits = TRUE), drop = FALSE) +
   theme_bw() +
@@ -66,7 +67,7 @@ S_segment_mrca <- ggplot() +
                    location = "tr")
 
 L_segment_mrca <- ggplot() +
-  geom_sf(data = nigeria_shapefile) +
+  geom_sf(data = nigeria_shapefile, fill = "white") +
   coord_sf(xlim = c(nigeria_bbox[1], nigeria_bbox[3]), ylim = c(nigeria_bbox[2], nigeria_bbox[4])) +
   geom_point(data = mrca_summary %>%
                filter(segment == "L segment"),
@@ -74,7 +75,7 @@ L_segment_mrca <- ggplot() +
                  y = y,
                  colour = tmrca_discrete),
              alpha = 1,
-             size = 0.4,
+             size = 0.6,
              position = position_jitter(width = 0.25, height = 0.25)) +
   scale_colour_viridis_d(guide = guide_coloursteps(show.limits = TRUE), drop = FALSE) +
   theme_bw() +

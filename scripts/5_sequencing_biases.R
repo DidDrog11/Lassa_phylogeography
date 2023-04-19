@@ -8,68 +8,141 @@ iso_3 <- getData("ISO3") %>%
   filter(NAME %in% unique(geocoded$country)) %>%
   pull(ISO3)
 
-gadm <- lapply(iso_3, function(x) getData(name = "GADM", country = x, level = 1, path = here("data_download")))
+gadm_1 <- lapply(iso_3, function(x) getData(name = "GADM", country = x, level = 1, path = here("data_download")))
 
-gadm <- do.call(bind, gadm) %>%
-  st_as_sf()
+gadm_2 <- lapply(iso_3, function(x) getData(name = "GADM", country = x, level = 2, path = here("data_download")))
 
-table(!is.na(geocoded$region)) # 1971 sequences have region locations
+gadm_1 <- do.call(bind, gadm_1) %>%
+  st_as_sf() %>%
+  mutate(NAME_1 = str_replace_all(NAME_1, "é", "e"),
+         NAME_1 = str_replace_all(NAME_1, "ô", "o"),
+         NAME_1 = case_when(str_detect(NAME_1, "GrandBassa") ~ "grand bassa",
+                            str_detect(NAME_1, "GrandGedeh") ~ "grand gedeh",
+                            str_detect(NAME_1, "GrandKru") ~ "grand kru",
+                            TRUE ~ str_to_lower(NAME_1)))
 
-# All samples
+gadm_2 <- do.call(bind, gadm_2) %>%
+  st_as_sf() %>%
+  mutate(NAME_1 = str_replace_all(NAME_1, "é", "e"),
+         NAME_1 = str_replace_all(NAME_1, "ô", "o"),
+         NAME_1 = str_replace_all(NAME_1, "è", "e"),
+         NAME_1 = str_to_lower(NAME_1),
+         NAME_2 = str_replace_all(NAME_2, "é", "e"),
+         NAME_2 = str_replace_all(NAME_2, "ô", "o"),
+         NAME_2 = str_replace_all(NAME_2, "è", "e"),
+         NAME_2 = str_to_lower(NAME_2))
 
-clean_geo <- geocoded %>%
-  drop_na(lon, lat, region) %>%
-  group_by(lon, lat) %>%
-  summarise(samples = n()) %>%
-  ungroup() %>%
-  st_as_sf(coords = c("lon", "lat"), crs = st_crs(gadm))
-
-level_1 <- st_join(clean_geo, gadm, join = st_within) %>%
-  tibble() %>%
-  select(samples, NAME_0, GID_1) %>%
-  group_by(NAME_0, GID_1) %>%
-  summarise(all_samples = sum(samples)) %>%
-  right_join(gadm, by = c("NAME_0", "GID_1")) %>%
-  mutate(all_samples = replace_na(all_samples, 0)) %>%
-  st_as_sf(crs = st_crs(gadm))
-
+# Associate cases with level 1 and level 2 administrative regions
 epi <- read_xlsx(here("data", "suspected_confirmed_deaths.xlsx")) %>%
-  filter(country != "nigeria") %>% 
-  group_by(country) %>%
-  summarise(national_cases = sum(confirmed_cases)) %>%
-  mutate(national_cases = replace_na(national_cases, 0),
-         country = str_to_title(country))
-
-nig_epi <- read_xlsx(here("data", "suspected_confirmed_deaths.xlsx")) %>%
-  filter(country == "nigeria") %>% 
+  mutate(confirmed_cases = replace_na(confirmed_cases, 0),
+         suspected_cases = replace_na(suspected_cases, 0),
+         region = str_replace_all(region, "é", "e"),) %>%
+  mutate(cases = case_when(suspected_cases == 0 ~ confirmed_cases,
+                           TRUE ~ confirmed_cases + (suspected_cases - confirmed_cases))) %>%
   group_by(country, region) %>%
-  summarise(regional_cases = sum(confirmed_cases)) %>%
+  summarise(regional_cases = sum(cases)) %>%
   mutate(regional_cases = replace_na(regional_cases, 0),
          country = str_to_title(country),
-         region = case_when(region == "fct" ~ "Federal Capital Territory",
-                            TRUE ~ str_to_title(str_replace_all(region, "_", " ")))) %>%
-  filter(region != "All")
+         region = case_when(region == "fct" ~ "federal capital territory",
+                            TRUE ~ str_to_lower(str_replace_all(region, "_", " ")))) %>%
+  ungroup() %>%
+  mutate(ID = row_number())
 
-pop_2005 <- rast(here("data", "wa_pop_2005.tif"))
+epi_level_1 <- c("Benin", "Burkina Faso", "Ghana", "Liberia", "Mali", "Nigeria", "Togo")
+epi_level_2 <- c("Guinea", "Sierra Leone")
 
-median_pop_density <- terra::extract(pop_2005, level_1) %>%
-  group_by(ID) %>%
-  summarise(median_pop = median(pop_2005))
+cases_level_2 <- gadm_2 %>%
+  select(GID_0, NAME_0, NAME_1, NAME_2) %>%
+  filter(NAME_0 %in% epi_level_2) %>%
+  left_join(epi,
+            by = c("NAME_0" = "country",
+                   "NAME_2" = "region")) %>%
+  mutate(regional_cases = replace_na(regional_cases, 0)) %>%
+  group_by(GID_0, NAME_1) %>%
+  summarise(regional_cases = sum(regional_cases))
 
-df_1 <- level_1 %>%
-  cbind(median_pop_density) %>%
-  left_join(epi, by = c("NAME_0" = "country")) %>%
-  left_join(nig_epi, by = c("NAME_0" = "country", "NAME_1" = "region")) %>%
-  mutate(confirmed_cases = coalesce(regional_cases, national_cases)) %>%
+cases_level_1 <- gadm_1 %>%
+  select(GID_0, NAME_0, NAME_1) %>%
+  filter(NAME_0 %in% epi_level_1) %>%
+  left_join(epi %>%
+              select(country, region, regional_cases), by = c("NAME_0" = "country",
+                                                              "NAME_1" = "region")) %>%
+  mutate(regional_cases = replace_na(regional_cases, 0)) %>%
+  group_by(GID_0, NAME_1) %>%
+  summarise(regional_cases = sum(regional_cases))
+
+cases_combined <- bind_rows(cases_level_1, cases_level_2) %>%
+  tibble() %>%
+  select(GID_0, NAME_1, regional_cases)
+
+# All samples
+clean_geocode <- geocoded %>%
+  drop_na(region, lon, lat) %>%
+  mutate(region = case_when(str_detect(region, "Abuja|FCT") ~ "federal capital territory",
+                            str_detect(region, "Adamawa State") ~ "adamawa",
+                            str_detect(region, "EBONYI|Ebonyi|Ebonyi State") ~ "ebonyi",
+                            str_detect(region, "EDDO|EDO|Edo|Edo State") ~ "edo",
+                            str_detect(region, "Enugu State") ~ "enugu",
+                            str_detect(region, "Kissedougou") ~ "kissidougou",
+                            str_detect(region, "N'Zerekore|Nzerekore") ~ "nzerekore",
+                            str_detect(region, "Nasarawa|Nasarawa|Nasarawa State|NASARAWA") ~ "nassarawa",
+                            str_detect(region, "Ondo state") ~ "ondo",
+                            str_detect(region, "Plateau|PLATEAU|Plateau State") ~ "plateau",
+                            str_detect(region, "Taraba|TARABA|Tararba") ~ "taraba",
+                            str_detect(region, "unknown|UNKNOWN") ~ as.character(NA),
+                            TRUE ~ str_to_lower(region)),
+         level_1 = case_when(region %in% gadm_1$NAME_1 ~ TRUE,
+                             TRUE ~ FALSE),
+         level_2 = case_when(region %in% gadm_2$NAME_2 ~ TRUE,
+                             TRUE ~ FALSE),
+         exact = case_when(level_1 == FALSE & level_2 == FALSE ~ TRUE,
+                           TRUE ~ FALSE))
+
+sequences_level_1 <- clean_geocode %>%
+  ungroup() %>%
+  st_as_sf(coords = c("lon", "lat"), crs = crs(gadm_1)) %>%
+  st_join(gadm_1, st_within) %>%
+  tibble() %>%
+  group_by(GID_0, NAME_1) %>%
+  summarise(n_sequences = n())
+
+# aggregate the cases and number of sequences at level 1 administrative regions
+# use the centroid of these for x and y coordinates and produce a smooth using cases and sequences
+# check for population density effect too
+
+level_1_sf <- gadm_1 %>%
+  left_join(sequences_level_1, by = c("GID_0", "NAME_1")) %>%
+  left_join(cases_combined, by = c("GID_0", "NAME_1")) %>%
+  select(GID_0, NAME_1, n_sequences, regional_cases) %>%
+  mutate(n_sequences = replace_na(n_sequences, 0),
+         regional_cases = replace_na(regional_cases, 0))
+
+if(!file.exists(here("data", "level_1_pop_count.rds"))) {
+  # Rasters of population count have been downloaded from https://hub.worldpop.org/geodata/listing?id=78 and saved in data_download
+  pop_rasters <- lapply(list.files(here("data_download"), pattern = "_2020.tif", full.names = TRUE), function(x) rast(x)) %>% sprc()
+  single_pop_raster <- merge(pop_rasters)
+  t <- aggregate(single_pop_raster, fact = 20, fun = "sum", na.rm = TRUE)
+  pop_level_1 <- terra::extract(t, gadm_1, fun = sum, na.rm = TRUE)
+  
+  write_rds(pop_level_1, here("data", "level_1_pop_count.rds"))
+} else {
+  
+  pop_level_1 <- read_rds(here("data", "level_1_pop_count.rds"))
+  
+}
+
+df_1 <- level_1_sf %>%
+  cbind(pop_level_1) %>%
+  rename(population_count = ben_2020) %>%
   ungroup() %>%
   rowwise() %>%
-  mutate(confirmed_cases = replace_na(confirmed_cases, 0),
-         lon = st_coordinates(st_centroid(geometry))[1],
+  mutate(lon = st_coordinates(st_centroid(geometry))[1],
          lat = st_coordinates(st_centroid(geometry))[2]) %>%
   tibble() %>%
-  select(NAME_0, GID_1, all_samples, median_pop, confirmed_cases, lon, lat)
+  mutate(cases_per_100000 = (regional_cases/population_count) * 100000) %>%
+  select(GID_0, NAME_1, n_sequences, regional_cases, population_count, cases_per_100000, lon, lat)
 
-m_1 <- gam(all_samples ~ s(lon, lat, bs = "ts", k = 102),
+m_1 <- gam(n_sequences ~ s(lon, lat, bs = "ts", k = 102),
     family = "tw",
     data = df_1,
     select = TRUE)
@@ -78,7 +151,7 @@ gam.check(m_1)
 
 rect_border <- tibble(x = c(-17.64, -17.64, 15.995642, 15.995642),
                       y = c(4.2, 27.683098, 4.2, 27.683098)) %>%
-  st_as_sf(coords = c("x", "y"), crs = crs(gadm)) %>%
+  st_as_sf(coords = c("x", "y"), crs = crs(gadm_1)) %>%
   summarise() %>%
   st_cast("POLYGON")
 
@@ -122,15 +195,16 @@ sequencing_effort <- model_1_raster +
         panel.grid = element_line(color = col_grid)) +
   theme_bw()
 
-save_plot(filename = here("outputs", "Figure_2.png"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
-save_plot(filename = here("outputs", "Figure_2.pdf"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
+# save_plot(filename = here("outputs", "Figure_2.png"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
+# save_plot(filename = here("outputs", "Figure_2.pdf"), plot = as_grob(sequencing_effort$ggObj), base_height = 7, base_width = 9)
 
-m_2 <- gam(all_samples ~ s(lon, lat, bs = "ts", k = 102) + s(median_pop, k = 10),
+m_2 <- gam(n_sequences ~ s(lon, lat, bs = "ts", k = 102) + s(cases_per_100000),
            family = "tw",
            data = df_1,
            select = TRUE)
 
 gam.check(m_2)
+summary(m_2)
 
 viz_m2 <- getViz(m_2)
 
@@ -156,7 +230,8 @@ sequencing_effort_2 <- model_2_raster +
         panel.grid = element_line(color = col_grid)) +
   theme_bw()
 
-save_plot(filename = here("outputs", "supplementary_figure_1.png"), plot = as_grob(sequencing_effort_2$ggObj), base_height = 7, base_width = 9)
+save_plot(filename = here("outputs", "Figure_2.png"), plot = as_grob(sequencing_effort_2$ggObj), base_height = 7, base_width = 9)
+save_plot(filename = here("outputs", "Figure_2.pdf"), plot = as_grob(sequencing_effort_2$ggObj), base_height = 7, base_width = 9)
 
 # By host
 host_geo <- geocoded %>%

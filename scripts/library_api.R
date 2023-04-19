@@ -23,7 +23,7 @@ pkgs =
     "raster",
     "colorspace",
     "scatterpie",
-    "terra",
+    "terra"
   )
 pacman::p_load(pkgs, character.only = T)
 
