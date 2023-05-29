@@ -293,6 +293,7 @@ geocoded <- geocoded %>%
   filter(!accession_lassa %in% fix_coords$accession_lassa) %>%
   bind_rows(fix_coords)
 
+
 country_geocode <- geocoded %>%
   left_join(., country_coordinate, by = "country")
 
@@ -324,6 +325,12 @@ complete_geocode = bind_rows(geocoded %>%
   group_by(region, country) %>%
   arrange(lon, lat) %>%
   slice(1)
+
+# Human sequence locations
+geocoded %>%
+  filter(str_detect(host, "Human|Homo sapiens")) %>%
+  select(lon, lat) %>%
+  left_join()
 
 map_regional <- geocoded %>%
   drop_na(region) %>%

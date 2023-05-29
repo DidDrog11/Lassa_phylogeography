@@ -33,20 +33,24 @@ gadm_2 <- do.call(bind, gadm_2) %>%
          NAME_2 = str_to_lower(NAME_2))
 
 # Associate cases with level 1 and level 2 administrative regions
-epi <- read_xlsx(here("data", "suspected_confirmed_deaths.xlsx")) %>%
+epi <- read_csv(here("data", "confirmed_cases.csv")) %>%
   mutate(confirmed_cases = replace_na(confirmed_cases, 0),
-         suspected_cases = replace_na(suspected_cases, 0),
          region = str_replace_all(region, "é", "e"),) %>%
-  mutate(cases = case_when(suspected_cases == 0 ~ confirmed_cases,
-                           TRUE ~ confirmed_cases + (suspected_cases - confirmed_cases))) %>%
   group_by(country, region) %>%
-  summarise(regional_cases = sum(cases)) %>%
+  summarise(regional_cases = sum(confirmed_cases)) %>%
   mutate(regional_cases = replace_na(regional_cases, 0),
          country = str_to_title(country),
          region = case_when(region == "fct" ~ "federal capital territory",
                             TRUE ~ str_to_lower(str_replace_all(region, "_", " ")))) %>%
   ungroup() %>%
   mutate(ID = row_number())
+
+country_level_cases <- read_csv(here("data", "confirmed_cases.csv")) %>%
+  filter((year >= 2012 & country == "nigeria" & region == "all")|
+           (year < 2012 & country == "nigeria") |
+           country != "nigeria") %>%
+  group_by(country) %>%
+  summarise(confirmed_cases  = sum(confirmed_cases, na.rm = TRUE))
 
 epi_level_1 <- c("Benin", "Burkina Faso", "Ghana", "Liberia", "Mali", "Nigeria", "Togo")
 epi_level_2 <- c("Guinea", "Sierra Leone")
@@ -106,6 +110,24 @@ sequences_level_1 <- clean_geocode %>%
   group_by(GID_0, NAME_1) %>%
   summarise(n_sequences = n())
 
+human_level_1_sequences <- clean_geocode %>%
+  ungroup() %>%
+  filter(str_detect(host, "Human|Homo sapiens|Homo Sapiens")) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = crs(gadm_1)) %>%
+  st_join(gadm_1, st_within) %>%
+  tibble() %>%
+  group_by(GID_0, NAME_1) %>%
+  summarise(n_sequences = n())
+
+rodent_level_1_sequences <- clean_geocode %>%
+  ungroup() %>%
+  filter(str_detect(host, "Mast|Mus|Rodent")) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = crs(gadm_1)) %>%
+  st_join(gadm_1, st_within) %>%
+  tibble() %>%
+  group_by(GID_0, NAME_1) %>%
+  summarise(n_sequences = n())
+
 # aggregate the cases and number of sequences at level 1 administrative regions
 # use the centroid of these for x and y coordinates and produce a smooth using cases and sequences
 # check for population density effect too
@@ -142,6 +164,45 @@ df_1 <- level_1_sf %>%
   mutate(cases_per_100000 = (regional_cases/population_count) * 100000) %>%
   select(GID_0, NAME_1, n_sequences, regional_cases, population_count, cases_per_100000, lon, lat)
 
+
+
+# Describe sequencing bias ------------------------------------------------
+
+case_sequence_bias <- geocoded %>%
+  filter(!is.na(country)) %>%
+  group_by(country) %>%
+  summarise(n_sequences = n()) %>%
+  left_join(country_level_cases %>%
+              mutate(country = case_when(country == "cote d'ivoire" ~ "Côte d'Ivoire",
+                                         TRUE ~ str_to_title(country))))
+
+ggplot(data = case_sequence_bias, aes(x = confirmed_cases, y = n_sequences)) +
+  geom_point(aes(colour = country))
+
+cor.test(case_sequence_bias$n_sequences, case_sequence_bias$confirmed_cases)
+
+case_human_sequence_bias <- geocoded %>%
+  filter(!is.na(country) & str_detect(host, "Human|Homo")) %>%
+  group_by(country) %>%
+  summarise(n_sequences = n()) %>%
+  left_join(country_level_cases %>%
+              mutate(country = case_when(country == "cote d'ivoire" ~ "Côte d'Ivoire",
+                                         TRUE ~ str_to_title(country))))
+
+cor.test(case_human_sequence_bias$n_sequences, case_human_sequence_bias$confirmed_cases)
+
+case_rodent_sequence_bias <- geocoded %>%
+  filter(!is.na(country) & !str_detect(host, "Human|Homo")) %>%
+  group_by(country) %>%
+  summarise(n_sequences = n()) %>%
+  left_join(country_level_cases %>%
+              mutate(country = case_when(country == "cote d'ivoire" ~ "Côte d'Ivoire",
+                                         TRUE ~ str_to_title(country))))
+
+cor.test(case_rodent_sequence_bias$n_sequences, case_rodent_sequence_bias$confirmed_cases)
+
+# Model sequencing bias ---------------------------------------------------
+
 m_1 <- gam(n_sequences ~ s(lon, lat, bs = "ts", k = 102),
     family = "tw",
     data = df_1,
@@ -177,7 +238,7 @@ model_1_raster <- plot(sm(viz_m1, 1), n = 300, too.far = 0.08) +
   l_fitRaster(pTrans = zto1(0.05, 2, 0.1)) +
   l_fitContour() +
   coord_cartesian(expand = FALSE)
-
+ 
 sequencing_effort <- model_1_raster +
   geom_sf(data = inverse_country, fill = "white", colour = "white", inherit.aes = FALSE) +
   geom_sf(data = w_africa, fill = NA, alpha = 1, lwd = 0.5, inherit.aes = FALSE) +
@@ -244,15 +305,15 @@ host_geo <- geocoded %>%
   group_by(lon, lat, host_clean) %>%
   summarise(samples = n()) %>%
   ungroup() %>%
-  st_as_sf(coords = c("lon", "lat"), crs = st_crs(gadm))
+  st_as_sf(coords = c("lon", "lat"), crs = st_crs(gadm_1))
 
-level_1_host <- st_join(host_geo, gadm, join = st_within) %>%
+level_1_host <- st_join(host_geo, gadm_1, join = st_within) %>%
   tibble() %>%
   select(samples, host_clean, NAME_0, GID_1) %>%
   group_by(NAME_0, GID_1, host_clean) %>%
-  summarise(all_samples = sum(samples)) %>%
-  right_join(gadm, by = c("NAME_0", "GID_1")) %>%
-  st_as_sf(crs = st_crs(gadm))
+  summarise(all_samples = sum(samples, na.rm = TRUE)) %>%
+  right_join(gadm_1, by = c("NAME_0", "GID_1")) %>%
+  st_as_sf(crs = st_crs(gadm_1))
 
 level_1_host <- level_1_host %>%
   tibble() %>%
@@ -262,11 +323,11 @@ level_1_host <- level_1_host %>%
 
 level_1_host <- lapply(level_1_host, function(x) 
   x %>%
-    full_join(gadm %>%
+    full_join(gadm_1 %>%
                 filter(NAME_0 %in% x$NAME_0)))
 
 plot_level_1 <- lapply(level_1_host, function(x)
-  st_as_sf(x, crs = st_crs(gadm)) %>%
+  st_as_sf(x, crs = st_crs(gadm_1)) %>%
     mutate(log_all_samples = log10(all_samples)) %>%
     ggplot() +
     geom_sf(aes(fill = log_all_samples)) +
